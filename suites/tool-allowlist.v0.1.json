@@ -1,0 +1,276 @@
+{
+  "suite_id": "tool-allowlist-v0.1",
+  "description": "Conformance corpus for the tool-allowlist rule type, TA-1 through TA-7 of the TealTiger policy conformance specification v0.1, plus the ratified '*' fallback.",
+  "schema_version": "1.0.0",
+  "spec_version": "policy-conformance-spec v0.1",
+  "registry": "teec.reason_codes v0.1.0 + proposed 1.1 additions",
+  "_notes": {
+    "placement": "Lives outside both SDK source trees per spec 8.1. Staged in the aidlc repository until a dedicated conformance repository exists.",
+    "schema_lineage": "Field names follow the existing Policy Test Harness Specification v1 (test_id, description, input.request, input.context, expected.decision_action, expected.reason_codes, tags) rather than inventing a new format.",
+    "deviation_1": "artifact_ref is omitted. The harness spec requires it, but the SDK policy model has no artifact abstraction, so there is nothing to reference.",
+    "deviation_2": "risk_score bounds are omitted. The harness spec uses 0.0-1.0 floats while both SDKs use 0-100 integers, and conformance spec 3.4 declares risk_score UNSPECIFIED pending decision D2. CV-6 forbids asserting an unspecified property.",
+    "addition": "targets and expected.triggering_clause are added, required by conformance spec 3.5 and CV-1/CV-2. Without them a verdict reached by the wrong mechanism counts as a pass."
+  },
+  "tests": [
+    {
+      "test_id": "ta1-tool-execute-without-tool",
+      "description": "TA-1: a tool.execute request that names no tool is malformed input, not a governance denial.",
+      "targets": "request.tool.missing",
+      "input": {
+        "request": { "agentId": "agent-1", "action": "tool.execute" },
+        "context": { "environment": "prod" }
+      },
+      "expected": {
+        "decision_action": "DENY",
+        "reason_codes": ["POLICY_VIOLATION", "INVALID_REQUEST"],
+        "reason_codes_absent": ["TOOL_NOT_ALLOWED"],
+        "triggering_clause": "request.tool.missing"
+      },
+      "policy": { "tools": { "search": { "allowed": true } } },
+      "tags": ["ta-1", "precondition", "smoke"]
+    },
+    {
+      "test_id": "ta2-entry-denies",
+      "description": "TA-2: a tool entry configured allowed:false denies, attributed to the allowed clause.",
+      "targets": "tools.file_delete.allowed",
+      "input": {
+        "request": { "agentId": "agent-1", "action": "tool.execute", "tool": "file_delete" },
+        "context": { "environment": "prod" }
+      },
+      "expected": {
+        "decision_action": "DENY",
+        "reason_codes": ["POLICY_VIOLATION", "TOOL_NOT_ALLOWED"],
+        "triggering_clause": "tools.file_delete.allowed"
+      },
+      "policy": { "tools": { "file_delete": { "allowed": false }, "search": { "allowed": true } } },
+      "tags": ["ta-2", "smoke", "regression"]
+    },
+    {
+      "test_id": "ta3-entry-permits",
+      "description": "TA-3: a tool entry configured allowed:true permits, with no clause denying.",
+      "targets": "none",
+      "input": {
+        "request": { "agentId": "agent-1", "action": "tool.execute", "tool": "search" },
+        "context": { "environment": "prod" }
+      },
+      "expected": {
+        "decision_action": "ALLOW",
+        "reason_codes": ["POLICY_COMPLIANT"],
+        "reason_codes_absent": ["TOOL_NOT_ALLOWED", "POLICY_VIOLATION"],
+        "triggering_clause": "none"
+      },
+      "policy": { "tools": { "file_delete": { "allowed": false }, "search": { "allowed": true } } },
+      "tags": ["ta-3", "smoke"]
+    },
+    {
+      "test_id": "ta4-absent-defaults-deny",
+      "description": "TA-4: a tool absent from the map is denied. Default-deny is normative; an unknown tool is not an allowed tool.",
+      "targets": "tools.unregistered_tool.absent",
+      "input": {
+        "request": { "agentId": "agent-1", "action": "tool.execute", "tool": "unregistered_tool" },
+        "context": { "environment": "prod" }
+      },
+      "expected": {
+        "decision_action": "DENY",
+        "reason_codes": ["POLICY_VIOLATION", "TOOL_NOT_ALLOWED"],
+        "triggering_clause": "tools.unregistered_tool.absent"
+      },
+      "policy": { "tools": { "search": { "allowed": true } } },
+      "tags": ["ta-4", "default-deny", "smoke", "regression"]
+    },
+    {
+      "test_id": "ta5-absent-distinguishable-from-denied",
+      "description": "TA-5: the same tool name must yield a different triggering clause depending on whether an entry exists and denies, or no entry exists. Pairs with ta5-denied-distinguishable-from-absent; the two differ only in policy.",
+      "targets": "tools.audit_export.absent",
+      "input": {
+        "request": { "agentId": "agent-1", "action": "tool.execute", "tool": "audit_export" },
+        "context": { "environment": "prod" }
+      },
+      "expected": {
+        "decision_action": "DENY",
+        "reason_codes": ["POLICY_VIOLATION", "TOOL_NOT_ALLOWED"],
+        "triggering_clause": "tools.audit_export.absent"
+      },
+      "policy": { "tools": { "search": { "allowed": true } } },
+      "tags": ["ta-5", "distinguishability"]
+    },
+    {
+      "test_id": "ta5-denied-distinguishable-from-absent",
+      "description": "TA-5: identical request to ta5-absent-distinguishable-from-denied, differing only in that the policy declares the tool allowed:false. Same action and same reason codes, different clause.",
+      "targets": "tools.audit_export.allowed",
+      "input": {
+        "request": { "agentId": "agent-1", "action": "tool.execute", "tool": "audit_export" },
+        "context": { "environment": "prod" }
+      },
+      "expected": {
+        "decision_action": "DENY",
+        "reason_codes": ["POLICY_VIOLATION", "TOOL_NOT_ALLOWED"],
+        "triggering_clause": "tools.audit_export.allowed"
+      },
+      "policy": { "tools": { "audit_export": { "allowed": false }, "search": { "allowed": true } } },
+      "tags": ["ta-5", "distinguishability"]
+    },
+    {
+      "test_id": "ta6-case-sensitive-no-match",
+      "description": "TA-6: matching is case-sensitive. An upper-case spelling of a denied tool does not match that entry; it is absent.",
+      "targets": "tools.FILE_DELETE.absent",
+      "input": {
+        "request": { "agentId": "agent-1", "action": "tool.execute", "tool": "FILE_DELETE" },
+        "context": { "environment": "prod" }
+      },
+      "expected": {
+        "decision_action": "DENY",
+        "reason_codes": ["POLICY_VIOLATION", "TOOL_NOT_ALLOWED"],
+        "triggering_clause": "tools.FILE_DELETE.absent"
+      },
+      "policy": { "tools": { "file_delete": { "allowed": false } } },
+      "tags": ["ta-6", "exact-match", "boundary"]
+    },
+    {
+      "test_id": "ta6-case-sensitive-permitted-not-widened",
+      "description": "TA-6: case-sensitivity must not widen permission either. An upper-case spelling of a permitted tool is absent, so it is denied rather than allowed.",
+      "targets": "tools.Search.absent",
+      "input": {
+        "request": { "agentId": "agent-1", "action": "tool.execute", "tool": "Search" },
+        "context": { "environment": "prod" }
+      },
+      "expected": {
+        "decision_action": "DENY",
+        "reason_codes": ["POLICY_VIOLATION", "TOOL_NOT_ALLOWED"],
+        "triggering_clause": "tools.Search.absent"
+      },
+      "policy": { "tools": { "search": { "allowed": true } } },
+      "tags": ["ta-6", "exact-match", "boundary", "fail-closed"]
+    },
+    {
+      "test_id": "ta6-no-whitespace-normalisation",
+      "description": "TA-6: no normalisation. A trailing space is a different tool name.",
+      "targets": "tools.search .absent",
+      "input": {
+        "request": { "agentId": "agent-1", "action": "tool.execute", "tool": "search " },
+        "context": { "environment": "prod" }
+      },
+      "expected": {
+        "decision_action": "DENY",
+        "reason_codes": ["POLICY_VIOLATION", "TOOL_NOT_ALLOWED"],
+        "triggering_clause": "tools.search .absent"
+      },
+      "policy": { "tools": { "search": { "allowed": true } } },
+      "tags": ["ta-6", "exact-match", "boundary"]
+    },
+    {
+      "test_id": "ta7-empty-map-permits-nothing",
+      "description": "TA-7: a present but empty tools map is an allowlist that permits nothing, so TA-4 default-deny applies. Conflating this with an absent section would mean a misconfiguration producing an empty map silently permits every tool.",
+      "targets": "tools.anything.absent",
+      "input": {
+        "request": { "agentId": "agent-1", "action": "tool.execute", "tool": "anything" },
+        "context": { "environment": "prod" }
+      },
+      "expected": {
+        "decision_action": "DENY",
+        "reason_codes": ["POLICY_VIOLATION", "TOOL_NOT_ALLOWED"],
+        "triggering_clause": "tools.anything.absent"
+      },
+      "policy": { "tools": {} },
+      "tags": ["ta-7", "boundary", "regression", "fail-closed"]
+    },
+    {
+      "test_id": "ta7-absent-section-is-inapplicable",
+      "description": "TA-7: a policy with no tools section at all configures no tool policy, so the section is inapplicable and nothing denies.",
+      "targets": "none",
+      "input": {
+        "request": { "agentId": "agent-1", "action": "tool.execute", "tool": "anything" },
+        "context": { "environment": "prod" }
+      },
+      "expected": {
+        "decision_action": "ALLOW",
+        "reason_codes": ["POLICY_COMPLIANT"],
+        "reason_codes_absent": ["TOOL_NOT_ALLOWED"],
+        "triggering_clause": "none"
+      },
+      "policy": {},
+      "tags": ["ta-7", "boundary"]
+    },
+    {
+      "test_id": "wildcard-fallback-denies",
+      "description": "Wildcard: a '*' entry configured allowed:false denies a tool with no specific entry, attributed to the wildcard rather than to a specific entry that does not exist.",
+      "targets": "tools.*.allowed",
+      "input": {
+        "request": { "agentId": "agent-1", "action": "tool.execute", "tool": "novel_tool" },
+        "context": { "environment": "prod" }
+      },
+      "expected": {
+        "decision_action": "DENY",
+        "reason_codes": ["POLICY_VIOLATION", "TOOL_NOT_ALLOWED"],
+        "triggering_clause": "tools.*.allowed"
+      },
+      "policy": { "tools": { "*": { "allowed": false } } },
+      "tags": ["wildcard", "attribution"]
+    },
+    {
+      "test_id": "wildcard-fallback-permits",
+      "description": "Wildcard: a '*' entry configured allowed:true permits a tool with no specific entry.",
+      "targets": "none",
+      "input": {
+        "request": { "agentId": "agent-1", "action": "tool.execute", "tool": "novel_tool" },
+        "context": { "environment": "prod" }
+      },
+      "expected": {
+        "decision_action": "ALLOW",
+        "reason_codes": ["POLICY_COMPLIANT"],
+        "triggering_clause": "none"
+      },
+      "policy": { "tools": { "*": { "allowed": true } } },
+      "tags": ["wildcard"]
+    },
+    {
+      "test_id": "wildcard-specific-permit-wins",
+      "description": "Wildcard precedence: a specific allowed:true entry overrides a '*' allowed:false fallback.",
+      "targets": "none",
+      "input": {
+        "request": { "agentId": "agent-1", "action": "tool.execute", "tool": "search" },
+        "context": { "environment": "prod" }
+      },
+      "expected": {
+        "decision_action": "ALLOW",
+        "reason_codes": ["POLICY_COMPLIANT"],
+        "triggering_clause": "none"
+      },
+      "policy": { "tools": { "*": { "allowed": false }, "search": { "allowed": true } } },
+      "tags": ["wildcard", "precedence"]
+    },
+    {
+      "test_id": "wildcard-specific-deny-wins",
+      "description": "Wildcard precedence: a specific allowed:false entry overrides a '*' allowed:true fallback, and is attributed to the specific entry.",
+      "targets": "tools.file_delete.allowed",
+      "input": {
+        "request": { "agentId": "agent-1", "action": "tool.execute", "tool": "file_delete" },
+        "context": { "environment": "prod" }
+      },
+      "expected": {
+        "decision_action": "DENY",
+        "reason_codes": ["POLICY_VIOLATION", "TOOL_NOT_ALLOWED"],
+        "triggering_clause": "tools.file_delete.allowed"
+      },
+      "policy": { "tools": { "*": { "allowed": true }, "file_delete": { "allowed": false } } },
+      "tags": ["wildcard", "precedence", "fail-closed"]
+    },
+    {
+      "test_id": "non-tool-action-unaffected",
+      "description": "A request that is not a tool invocation is not governed by the tool policy, even when one is configured.",
+      "targets": "none",
+      "input": {
+        "request": { "agentId": "agent-1", "action": "chat.create", "content": "hello" },
+        "context": { "environment": "prod" }
+      },
+      "expected": {
+        "decision_action": "ALLOW",
+        "reason_codes": ["POLICY_COMPLIANT"],
+        "reason_codes_absent": ["TOOL_NOT_ALLOWED"],
+        "triggering_clause": "none"
+      },
+      "policy": { "tools": { "file_delete": { "allowed": false } } },
+      "tags": ["scope", "boundary"]
+    }
+  ]
+}

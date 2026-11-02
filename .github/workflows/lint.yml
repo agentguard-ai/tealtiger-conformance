@@ -1,0 +1,28 @@
+name: Lint suites
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    # Validates every suite against the case validity rules before anyone runs
+    # it against an implementation. A defective case produces a misleading
+    # result rather than no result, so the suite is checked first.
+    #
+    # CV-5 is reported as SKIPPED here, not passed: it needs the TEEC
+    # reason-code registry, which is not public. Pass --registry locally to
+    # enable it. A rule that cannot run must say so rather than count as green.
+    - name: Lint all suites
+      run: python tools/lint_corpus.py "suites/*.json"
