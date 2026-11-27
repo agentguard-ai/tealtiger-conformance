@@ -17,7 +17,7 @@ from it.**
 
 | Rule type | Specified | TypeScript | Python |
 |---|---|---|---|
-| Tool allowlist (TA-1 – TA-8) | yes | **16/16** (in CI on `main`) | **0/16** |
+| Tool allowlist (TA-1 – TA-8) | yes | **16/16** (in CI on `main`) | **16/16** (in CI on `main`, since 1.7.0) |
 | PII | no | not implemented | not implemented |
 | Prompt injection | no | not implemented | not implemented |
 | Code execution | no | unvalidated | not implemented |
@@ -31,12 +31,15 @@ than it has is worse than none:
 
 - **One rule type of eight is specified and covered.** The remaining seven are
   blocked on product decisions about what the semantics should be, not on
-  engineering.
-- **TypeScript passes all 16 cases on a branch that is not yet merged.** No
-  released version of either SDK passes this corpus.
-- **Python passes none of them.** Its policy engine does not evaluate policy:
-  `TealEngine._evaluate_policies()` returns `allowed: true` unconditionally and
-  never reads the configured policy.
+  engineering. A 16/16 result says this one rule type works; it says nothing
+  about the other seven, and should never be quoted as though it did.
+- **Both SDKs now pass all 16 cases**, in CI on `main`, and both run this
+  corpus rather than a private copy. TypeScript has since its
+  `feat/conformance-tool-allowlist` work; Python since **1.7.0** (2026-11-27).
+- **Python passed none of them until 1.7.0.** Its engine did not evaluate
+  policy: `TealEngine._evaluate_policies()` returned `allowed: true`
+  unconditionally and never read the configured policy. 1.6.0 replaced that
+  silent allow with a raise; 1.7.0 replaced the raise with a real decision.
 - **`risk_score` is deliberately not asserted anywhere here.** There is no
   severity model in either implementation, so scoring it would manufacture
   failures that carry no governance meaning.
@@ -76,9 +79,21 @@ CONFORMANCE_CORPUS=/path/to/tealtiger-conformance/suites/tool-allowlist.v0.1.jso
   npm run conformance
 ```
 
+**Python**
+
+```bash
+git clone https://github.com/agentguard-ai/tealtiger-conformance.git
+cd /path/to/tealtiger-python-prod
+pip install -e .
+CONFORMANCE_CORPUS=/path/to/tealtiger-conformance/suites/tool-allowlist.v0.1.json \
+  python conformance_harness.py
+```
+
 A conforming run reports every case passing and exits 0. A harness that cannot
 locate the corpus **must fail rather than skip** — a gate that reports green
-while checking nothing is the defect this corpus exists to catch.
+while checking nothing is the defect this corpus exists to catch. Both harnesses
+exit with a **distinct** code when they cannot establish what they are testing,
+so "does not conform" and "cannot tell you anything" are never confused.
 
 **Validating the corpus itself**
 
