@@ -17,7 +17,7 @@ from it.**
 
 | Rule type | Specified | TypeScript | Python |
 |---|---|---|---|
-| Tool allowlist (TA-1 – TA-7) | yes | **16/16** (unmerged branch) | **0/16** |
+| Tool allowlist (TA-1 – TA-8) | yes | **16/16** (in CI on `main`) | **0/16** |
 | PII | no | not implemented | not implemented |
 | Prompt injection | no | not implemented | not implemented |
 | Code execution | no | unvalidated | not implemented |

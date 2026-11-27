@@ -1,6 +1,6 @@
 {
   "suite_id": "tool-allowlist-v0.1",
-  "description": "Conformance corpus for the tool-allowlist rule type, TA-1 through TA-7 of the TealTiger policy conformance specification v0.1, plus the ratified '*' fallback.",
+  "description": "Conformance corpus for the tool-allowlist rule type, TA-1 through TA-8 of the TealTiger policy conformance specification v0.1. TA-8 is the '*' fallback entry: exact entries take precedence, and a verdict inherited from the fallback is attributed to tools.*.allowed.",
   "schema_version": "1.0.0",
   "spec_version": "policy-conformance-spec v0.1",
   "registry": "teec.reason_codes v0.1.0 + proposed 1.1 additions",
